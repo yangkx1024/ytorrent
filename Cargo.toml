@@ -1,0 +1,21 @@
+[package]
+name = "ytorrent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.201", features = ["derive"] }
+serde_with = { version = "3.8.1" }
+bendy = { version = "0.3.3", features = ["serde"] }
+serde_bytes = "0.11.14"
+tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
+reqwest = { version = "0.12.4" }
+sha1_smol = { version = "1.0.0", features = ["std"] }
+rand = "0.8.5"
+url = "2.5.0"
+
+[dev-dependencies]
+anyhow = "1.0.83"
+
+
+[lib]
