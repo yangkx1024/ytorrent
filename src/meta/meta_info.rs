@@ -3,6 +3,8 @@ use serde_with::rust::unwrap_or_skip;
 
 use super::*;
 
+pub type AnnounceList = Box<[Box<[Box<str>]>]>;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct MetaInfo {
     /// The URL of the tracker.
@@ -11,7 +13,7 @@ pub(crate) struct MetaInfo {
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) announce: Option<String>,
+    pub(crate) announce: Option<Box<str>>,
     /// [BEP-0012](https://www.bittorrent.org/beps/bep_0012.html) extends BitTorrent to support
     /// multiple trackers
     #[serde(
@@ -20,20 +22,20 @@ pub(crate) struct MetaInfo {
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) announce_list: Option<Vec<Vec<String>>>,
+    pub(crate) announce_list: Option<AnnounceList>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) comment: Option<String>,
+    pub(crate) comment: Option<Box<str>>,
     #[serde(
         rename = "created by",
         skip_serializing_if = "Option::is_none",
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) created_by: Option<String>,
+    pub(crate) created_by: Option<Box<str>>,
     #[serde(
         rename = "creation date",
         skip_serializing_if = "Option::is_none",
@@ -49,14 +51,14 @@ pub(crate) struct MetaInfo {
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) nodes: Option<Vec<Node>>,
+    pub(crate) nodes: Option<Box<[Node]>>,
     #[serde(
         rename = "url-list",
         skip_serializing_if = "Option::is_none",
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) url_list: Option<Vec<String>>,
+    pub(crate) url_list: Option<Box<[Box<str>]>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -71,7 +73,7 @@ pub(crate) struct Info {
         default,
         with = "unwrap_or_skip"
     )]
-    pub(crate) name: Option<String>,
+    pub(crate) name: Option<Box<str>>,
     /// piece length maps to the number of bytes in each piece the file is split into. For the
     /// purposes of transfer, files are split into fixed-size pieces which are all the same length
     /// except for possibly the last one which may be truncated. piece length is almost always a
@@ -101,21 +103,21 @@ pub(crate) enum FileMode {
         length: u64,
     },
     Multiple {
-        files: Vec<FileInfo>,
+        files: Box<[FileInfo]>,
     },
 }
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct PieceList(
     /// SHA-1 digest
-    Vec<Sha1Digest>
+    Box<[Sha1Digest]>
 );
 
 impl Serialize for PieceList {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> where S: Serializer {
         let mut bytes = Vec::with_capacity(self.0.len() * Sha1Digest::LENGTH);
 
-        for piece in &self.0 {
+        for piece in self.0.as_ref() {
             bytes.extend_from_slice(piece.as_ref());
         }
 
@@ -146,11 +148,11 @@ impl<'de> Deserialize<'de> for PieceList {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub(crate) struct FileInfo {
     pub(crate) length: u64,
-    pub(crate) path: Vec<String>,
+    pub(crate) path: Box<[Box<str>]>,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-pub(crate) struct Node(String, u16);
+pub(crate) struct Node(Box<str>, u16);
 
 #[cfg(test)]
 mod tests {
@@ -206,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_se_de_piece_list() {
-        let piece_list = PieceList(vec![Sha1Digest::new(SAMPLE_SHA1_DIGEST.to_owned())]);
+        let piece_list = PieceList([Sha1Digest::new(SAMPLE_SHA1_DIGEST)].into());
         let sha1 = bendy::serde::to_bytes(&piece_list).unwrap();
         let piece_list: PieceList = bendy::serde::from_bytes(sha1.as_slice()).unwrap();
         assert_eq!(piece_list.0.first().unwrap().as_ref(), SAMPLE_SHA1_DIGEST);
@@ -223,7 +225,7 @@ mod tests {
         info.extend(TAG_PIECE_LENGTH.to_bencode().unwrap());
         info.extend(4096.to_bencode().unwrap());
         info.extend(TAG_PIECES.to_bencode().unwrap());
-        let piece_list = PieceList(vec![Sha1Digest::new(SAMPLE_SHA1_DIGEST.to_owned())]);
+        let piece_list = PieceList([Sha1Digest::new(SAMPLE_SHA1_DIGEST.to_owned())].into());
         info.extend(bendy::serde::to_bytes(&piece_list).unwrap());
         info.extend(TAG_PRIVATE.to_bencode().unwrap());
         info.extend(0.to_bencode().unwrap());
@@ -236,9 +238,9 @@ mod tests {
         let info = build_info_data();
         let ret: Info = bendy::serde::from_bytes(info.as_slice()).unwrap();
         assert_eq!(ret.mode, FileMode::Single { length: 1024 });
-        assert_eq!(ret.name, Some(SAMPLE_NAME.to_owned()));
+        assert_eq!(ret.name, Some(SAMPLE_NAME.into()));
         assert_eq!(ret.piece_length, 4096);
-        assert_eq!(ret.pieces, PieceList(vec![Sha1Digest::new(SAMPLE_SHA1_DIGEST.to_owned())]));
+        assert_eq!(ret.pieces, PieceList([Sha1Digest::new(SAMPLE_SHA1_DIGEST.to_owned())].into()));
         assert_eq!(ret.private, Some(false));
     }
 
@@ -257,27 +259,27 @@ mod tests {
         meta.push(b'e');
 
         let ret: MetaInfo = bendy::serde::from_bytes(meta.as_slice()).unwrap();
-        assert_eq!(ret.announce, Some(SAMPLE_ANNOUNCE.to_owned()));
+        assert_eq!(ret.announce, Some(SAMPLE_ANNOUNCE.into()));
         assert_eq!(
             ret.announce_list,
-            Some(vec![
-                vec![
-                    "http://bttracker.debian.org:6969/announce".to_owned(),
-                    "http://bttracker.debian.org:6969/announce".to_owned(),
-                ],
-                vec![
-                    "http://bttracker.debian.org:6969/announce".to_owned(),
-                    "http://bttracker.debian.org:6969/announce".to_owned(),
-                ]
-            ]),
+            Some([
+                [
+                   "http://bttracker.debian.org:6969/announce".into(),
+                    "http://bttracker.debian.org:6969/announce".into(),
+                ].into(),
+                [
+                    "http://bttracker.debian.org:6969/announce".into(),
+                    "http://bttracker.debian.org:6969/announce".into(),
+                ].into()
+            ].into()),
         );
         assert_eq!(
             ret.nodes,
-            Some(vec![
-                Node("127.0.0.1".to_owned(), 6881),
-                Node("your.router.node".to_owned(), 4804),
-                Node("2001:db8:100:0:d5c8:db3f:995e:c0f7".to_owned(), 1941),
-            ])
+            Some([
+                Node("127.0.0.1".into(), 6881),
+                Node("your.router.node".into(), 4804),
+                Node("2001:db8:100:0:d5c8:db3f:995e:c0f7".into(), 1941),
+            ].into())
         )
     }
 
@@ -287,11 +289,11 @@ mod tests {
         let mut buffer = vec![];
         file.read_to_end(&mut buffer).expect("Failed to read file");
         let meta: MetaInfo = bendy::serde::from_bytes(buffer.as_slice()).unwrap();
-        assert_eq!(meta.announce, Some("http://bttracker.debian.org:6969/announce".to_owned()));
-        assert_eq!(meta.created_by, Some("mktorrent 1.1".to_owned()));
+        assert_eq!(meta.announce, Some("http://bttracker.debian.org:6969/announce".into()));
+        assert_eq!(meta.created_by, Some("mktorrent 1.1".into()));
         assert_eq!(meta.creation_date, Some(1707570148));
         assert_eq!(meta.info.mode, FileMode::Single { length: 659554304 });
-        assert_eq!(meta.info.name, Some("debian-12.5.0-amd64-netinst.iso".to_owned()));
+        assert_eq!(meta.info.name, Some("debian-12.5.0-amd64-netinst.iso".into()));
         assert_eq!(meta.info.piece_length, 262144);
         assert_eq!(meta.info.pieces.0.len(), 50320 / 20);
     }

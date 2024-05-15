@@ -23,12 +23,12 @@ pub(crate) struct TrackerResponseCompat {
 }
 
 #[derive(Debug)]
-pub(crate) struct CompactPeers(Vec<SocketAddrV4>);
+pub(crate) struct CompactPeers(Box<[SocketAddrV4]>);
 
 impl Serialize for CompactPeers {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let mut bytes = Vec::with_capacity(self.0.len() * 6);
-        for addr in &self.0 {
+        for addr in self.0.as_ref() {
             bytes.extend_from_slice(&addr.ip().octets());
             bytes.extend_from_slice(&addr.port().to_be_bytes());
         }
@@ -38,7 +38,7 @@ impl Serialize for CompactPeers {
 
 impl<'de> Deserialize<'de> for CompactPeers {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-        let bytes = serde_bytes::ByteBuf::deserialize(deserializer)?.into_vec();
+        let bytes = serde_bytes::ByteBuf::deserialize(deserializer)?;
         if bytes.len() % 6 != 0 {
             return Err(Error::custom(format!(
                 "buffer length {} is not a multiple of {}",
