@@ -12,7 +12,7 @@ pub(crate) struct Client {
 impl Client {
     fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            torrent: Torrent::parse(path)
+            torrent: Torrent::parse(path),
         }
     }
 
@@ -42,6 +42,6 @@ mod tests {
         let client = Client::new("./resources/debian-12.5.0-amd64-netinst.iso.torrent");
         let resp = client.connect_announce().await;
         println!("{:?}", resp);
-        assert!(resp.is_ok())
+        assert!(resp.is_ok());
     }
 }
