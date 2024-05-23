@@ -35,10 +35,10 @@
 //! assert_eq!(meta.announce, Some("http://bttracker.debian.org:6969/announce".into()));
 //! ```
 //!
-pub use bencode::{BencodeParser, de, DictDecoder, ListDecoder, Object};
-pub use common::{Error, Result};
-pub use meta::{FileInfo, FileMode, MetaInfo, Node, PieceList, Sha1Digest};
-pub use tracker::{Client, ScrapeFile, TrackerResponseCompat};
+pub use bencode::*;
+pub use common::*;
+pub use meta::*;
+pub use tracker::*;
 
 mod bencode;
 mod common;
