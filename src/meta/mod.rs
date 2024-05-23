@@ -1,10 +1,10 @@
-pub(crate) use meta_info::*;
-pub(crate) use sha1_digest::*;
-pub(crate) use torrent::*;
+pub use meta_info::*;
+pub use sha1_digest::*;
+pub use torrent::*;
 
+use super::bencode::*;
 use super::common::*;
 
 mod meta_info;
 mod sha1_digest;
 mod torrent;
-

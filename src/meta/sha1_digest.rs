@@ -1,20 +1,23 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 use std::ops::Deref;
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_with::DeserializeAs;
 use sha1_smol::Sha1;
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct Sha1Digest([u8; Self::LENGTH]);
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Sha1Digest(pub [u8; Self::LENGTH]);
 
 impl Sha1Digest {
-    pub(crate) const LENGTH: usize = 20;
+    pub const LENGTH: usize = 20;
 
-    pub(crate) fn new(bytes: [u8; 20]) -> Self {
+    pub(super) fn new(bytes: [u8; 20]) -> Self {
         Self(bytes)
     }
 
-    pub(crate) fn from_data(data: impl AsRef<[u8]>) -> Self {
+    pub(super) fn digest(data: impl AsRef<[u8]>) -> Self {
         Sha1::from(data).digest().into()
     }
 }
@@ -39,5 +42,24 @@ impl Display for Sha1Digest {
         }
 
         Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for Sha1Digest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = serde_with::Bytes::deserialize_as(deserializer)?;
+        Ok(Sha1Digest::new(bytes))
+    }
+}
+
+impl Serialize for Sha1Digest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
     }
 }

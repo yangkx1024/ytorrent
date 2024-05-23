@@ -1,5 +1,3 @@
-pub(crate) use result::Error;
-pub(crate) use result::Result;
+pub use result::*;
 
 mod result;
-

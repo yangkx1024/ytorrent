@@ -1,25 +1,13 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug)]
-#[allow(dead_code)]
-pub(crate) enum Error {
+pub enum Error {
     BencodeDecode(String),
-    BencodeSerde(String),
     Request(String),
+    SerdeCustom(String),
 }
 
-#[allow(dead_code)]
-pub(crate) type Result<T> = std::result::Result<T, Error>;
-
-impl From<bendy::decoding::Error> for Error {
-    fn from(err: bendy::decoding::Error) -> Self {
-        Error::BencodeDecode(format!("{:?}", err))
-    }
-}
-
-impl From<bendy::serde::Error> for Error {
-    fn from(err: bendy::serde::Error) -> Self {
-        Error::BencodeSerde(format!("{:?}", err))
-    }
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
@@ -27,3 +15,29 @@ impl From<reqwest::Error> for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::BencodeDecode(str) => {
+                write!(f, "Decode error: {}", str)
+            }
+            Error::Request(str) => {
+                write!(f, "Request error: {}", str)
+            }
+            Error::SerdeCustom(str) => {
+                write!(f, "Serde custom error: {}", str)
+            }
+        }
+    }
+}
+
+impl serde::de::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
+        Error::SerdeCustom(msg.to_string())
+    }
+}
