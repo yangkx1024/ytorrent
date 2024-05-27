@@ -1,3 +1,4 @@
+use log::trace;
 use serde::de::{
     DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, VariantAccess, Visitor,
 };
@@ -9,7 +10,7 @@ use super::Error::*;
 macro_rules! deserialize_integer {
     ($self:ident, $int_type:ty, $target_type:literal) => {{
         let cur_position = $self.offset;
-        println!("deserialize_integer for {}", $target_type);
+        trace!("deserialize_integer for {}", $target_type);
         match $self.parse()? {
             Some(Object::Int(value)) => value.parse::<$int_type>().map_err(|e| {
                 SerdeCustom(format!(
@@ -32,7 +33,7 @@ macro_rules! deserialize_integer {
 macro_rules! deserialize_string {
     ($self:ident, $target_type:literal) => {{
         let cur_position = $self.offset;
-        println!("deserialize_string for {}", $target_type);
+        trace!("deserialize_string for {}", $target_type);
         match $self.parse()? {
             Some(Object::Bytes(bytes)) => std::str::from_utf8(bytes).map_err(|e| {
                 SerdeCustom(format!(
@@ -55,7 +56,7 @@ macro_rules! deserialize_string {
 macro_rules! deserialize_bytes {
     ($self:ident, $target_type:literal) => {{
         let cur_position = $self.offset;
-        println!("deserialize_bytes for {}", $target_type);
+        trace!("deserialize_bytes for {}", $target_type);
         match $self.parse()? {
             Some(Object::Bytes(bytes)) => Ok(bytes),
             Some(other) => Err(SerdeCustom(format!(
@@ -77,7 +78,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("deserialize_any");
+        trace!("deserialize_any");
         let cur_position = self.offset;
         match *self.peek_token()? {
             Token::Dict => self.deserialize_map(visitor),
@@ -198,7 +199,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_string(deserialize_string!(self, "str")?.to_string())
+        visitor.visit_string(deserialize_string!(self, "string")?.to_string())
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
@@ -249,7 +250,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("deserialize_seq");
+        trace!("deserialize_seq");
         self.expect_list_begin("seq/tuple/tuple_struct")?;
         let value = visitor.visit_seq(&mut *self)?;
         self.expect_end("seq/tuple/tuple_struct")?;
@@ -260,7 +261,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("deserialize_tuple");
+        trace!("deserialize_tuple");
         self.deserialize_any(visitor)
     }
 
@@ -273,7 +274,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("deserialize_tuple_struct");
+        trace!("deserialize_tuple_struct");
         self.deserialize_any(visitor)
     }
 
@@ -281,11 +282,11 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("deserialize_map");
+        trace!("deserialize_map");
         self.expect_dict_begin("map/struct")?;
         let value = visitor.visit_map(&mut *self)?;
         self.expect_end("map/struct")?;
-        println!("end deserialize_map");
+        trace!("end deserialize_map");
         Ok(value)
     }
 
@@ -310,11 +311,12 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
+        trace!("deserialize_enum");
         let cur_position = self.offset;
         match &*self.peek_token()? {
             Token::Dict => {
                 self.expect_dict_begin("enum")?;
-                visitor.visit_map(self)
+                visitor.visit_enum(&mut *self)
             }
             Token::String(bytes) => {
                 // consume the peeked token
@@ -350,8 +352,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut BencodeParser<'de> {
     }
 }
 
-/// Here we already consumed the start 'e' of the list, make sure this visitor consume 'e' as well.
-impl<'de> MapAccess<'de> for BencodeParser<'de> {
+impl<'a, 'de: 'a> MapAccess<'de> for BencodeParser<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -362,7 +363,7 @@ impl<'de> MapAccess<'de> for BencodeParser<'de> {
         if *token == Token::End {
             return Ok(None);
         }
-        println!("visit map key {}", token);
+        trace!("visit map key {}", token);
         seed.deserialize(self).map(Some)
     }
 
@@ -370,7 +371,7 @@ impl<'de> MapAccess<'de> for BencodeParser<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        println!("visit map value");
+        trace!("visit map value");
         seed.deserialize(self)
     }
 }
@@ -390,10 +391,11 @@ impl<'de> SeqAccess<'de> for BencodeParser<'de> {
     }
 }
 
-impl<'de> VariantAccess<'de> for &'de mut BencodeParser<'de> {
+impl<'de> VariantAccess<'de> for &mut BencodeParser<'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
+        trace!("unit_variant");
         Ok(())
     }
 
@@ -401,6 +403,7 @@ impl<'de> VariantAccess<'de> for &'de mut BencodeParser<'de> {
     where
         T: DeserializeSeed<'de>,
     {
+        trace!("newtype_variant_seed");
         let value = seed.deserialize(&mut *self)?;
         self.expect_end("newtype_variant_seed")?;
         Ok(value)
@@ -410,6 +413,7 @@ impl<'de> VariantAccess<'de> for &'de mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
+        trace!("tuple_variant");
         let value = serde::de::Deserializer::deserialize_seq(&mut *self, visitor)?;
         self.expect_end("tuple_variant")?;
         Ok(value)
@@ -419,13 +423,14 @@ impl<'de> VariantAccess<'de> for &'de mut BencodeParser<'de> {
     where
         V: Visitor<'de>,
     {
+        trace!("struct_variant");
         let value = serde::de::Deserializer::deserialize_map(&mut *self, visitor)?;
         self.expect_end("struct_variant")?;
         Ok(value)
     }
 }
 
-impl<'de> EnumAccess<'de> for &'de mut BencodeParser<'de> {
+impl<'de> EnumAccess<'de> for &mut BencodeParser<'de> {
     type Error = Error;
     type Variant = Self;
 
@@ -433,6 +438,7 @@ impl<'de> EnumAccess<'de> for &'de mut BencodeParser<'de> {
     where
         V: DeserializeSeed<'de>,
     {
+        trace!("variant_seed");
         Ok((seed.deserialize(&mut *self)?, self))
     }
 }
@@ -442,4 +448,175 @@ where
     T: serde::de::Deserialize<'de>,
 {
     serde::de::Deserialize::deserialize(&mut BencodeParser::new(b))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use log::{LevelFilter, Metadata, Record};
+    use serde::{Deserialize, Serialize};
+    use serde_with::{Bytes, serde_as};
+    use serde_with::rust::unwrap_or_skip;
+
+    use crate::de;
+
+    struct Logger;
+
+    impl log::Log for Logger {
+        fn enabled(&self, _: &Metadata) -> bool {
+            true
+        }
+
+        fn log(&self, record: &Record) {
+            println!("{}", record.args())
+        }
+
+        fn flush(&self) {}
+    }
+
+    static LOGGER: Logger = Logger;
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    enum Enum {
+        Unit,
+        Int(i32),
+        Str(String),
+        Tuple((i8, i32)),
+        Struct(HashMap<String, (String, i64)>),
+    }
+
+    #[serde_as]
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Struct {
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        bool_key: Option<bool>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        i8_key: Option<i8>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        u8_key: Option<u8>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        i16_key: Option<i16>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        u16_key: Option<u16>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        i32_key: Option<i32>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        u32_key: Option<u32>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        i64_key: Option<i64>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        u64_key: Option<u64>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        usize_key: Option<usize>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        string_key: Option<String>,
+        #[serde_as(as = "Bytes")]
+        vec_key: Vec<u8>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default,
+            with = "unwrap_or_skip"
+        )]
+        tuple_key: Option<(u8, (i32, String))>,
+        map_key: HashMap<String, String>,
+        enum_key: Enum,
+    }
+
+    #[test]
+    fn test_de() {
+        log::set_logger(&LOGGER)
+            .map(|()| log::set_max_level(LevelFilter::Trace))
+            .unwrap();
+        let mut s = Struct {
+            bool_key: Some(true),
+            i8_key: Some(i8::MIN),
+            u8_key: Some(u8::MAX),
+            i16_key: Some(i16::MIN),
+            u16_key: Some(u16::MAX),
+            i32_key: Some(i32::MIN),
+            u32_key: Some(u32::MAX),
+            i64_key: Some(i64::MIN),
+            u64_key: Some(u64::MAX),
+            usize_key: Some(usize::MAX),
+            string_key: Some("test string".to_string()),
+            vec_key: vec![1, 2, 3, 4],
+            tuple_key: Some((12, (13, "abc".to_string()))),
+            map_key: HashMap::from([
+                ("key1".to_string(), "value1".to_string()),
+                ("key2".to_string(), "value2".to_string()),
+            ]),
+            enum_key: Enum::Unit,
+        };
+        let bytes = serde_bencode::to_bytes(&s).unwrap();
+        let s_copy: Struct = de::from_bytes(&bytes).unwrap();
+        assert_eq!(s_copy, s);
+
+        s.enum_key = Enum::Int(13);
+        let bytes = serde_bencode::to_bytes(&s).unwrap();
+        let s_copy: Struct = de::from_bytes(&bytes).unwrap();
+        assert_eq!(s_copy, s);
+
+        s.enum_key = Enum::Str("abc".to_string());
+        let bytes = serde_bencode::to_bytes(&s).unwrap();
+        let s_copy: Struct = de::from_bytes(&bytes).unwrap();
+        assert_eq!(s_copy, s);
+
+        s.enum_key = Enum::Tuple((1, 2));
+        let bytes = serde_bencode::to_bytes(&s).unwrap();
+        let s_copy: Struct = de::from_bytes(&bytes).unwrap();
+        assert_eq!(s_copy, s);
+
+        s.enum_key = Enum::Struct(HashMap::from([(
+            "key1".to_string(),
+            ("abc".to_string(), 12),
+        )]));
+        let bytes = serde_bencode::to_bytes(&s).unwrap();
+        let s_copy: Struct = de::from_bytes(&bytes).unwrap();
+        assert_eq!(s_copy, s);
+    }
 }

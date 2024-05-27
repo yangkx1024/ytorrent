@@ -1,5 +1,7 @@
 # A toy torrent client
 
+[![Cargo Test](https://github.com/yangkx1024/ytorrent/actions/workflows/rust.yml/badge.svg)](https://github.com/yangkx1024/ytorrent/actions/workflows/rust.yml)
+
 ## Progress
 
 - [x] Parse .torrent file

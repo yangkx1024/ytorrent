@@ -32,6 +32,8 @@
 //! ```
 use std::rc::Rc;
 
+use log::trace;
+
 use super::*;
 use super::Error::*;
 
@@ -56,11 +58,11 @@ impl<'de> BencodeParser<'de> {
     pub(super) fn peek_token(&mut self) -> Result<Rc<Token<'de>>> {
         // Consume the cached token first
         if let Some(token) = &self.peeked_token {
-            println!("peek reused token: {}", token);
+            trace!("peek reused token: {}", token);
             return Ok(token.clone());
         }
         self.next_raw_token().map(|token| {
-            println!("peek token: {}", token);
+            trace!("peek token: {}", token);
             let token = Rc::new(token);
             self.peeked_token = Some(token.clone());
             token
@@ -73,7 +75,7 @@ impl<'de> BencodeParser<'de> {
     pub(super) fn next_token(&mut self) -> Result<Rc<Token<'de>>> {
         // Consume the cached token first
         if let Some(token) = self.peeked_token.take() {
-            println!("reused token: {}", token);
+            trace!("reused token: {}", token);
             return Ok(token);
         }
         self.next_raw_token().map(Rc::new)
@@ -101,7 +103,7 @@ impl<'de> BencodeParser<'de> {
             ))),
         }
         .map(|token| {
-            println!("parsed token: {}", token);
+            trace!("parsed token: {}", token);
             token
         })
     }
