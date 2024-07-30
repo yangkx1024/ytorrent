@@ -27,12 +27,12 @@ impl Client {
             info_hash_query,
             peer_id_query
         );
-        if cfg!(debug) || cfg!(test) {
+        if cfg!(test) {
             println!("url: {}", http_url);
         }
         let ret = reqwest::get(http_url).await?;
         let bytes = ret.bytes().await?;
-        if cfg!(debug) || cfg!(test) {
+        if cfg!(test) {
             println!("response {:?}", bytes);
         }
         let response: TrackerResponseCompat = de::from_bytes(&bytes)?;
@@ -45,12 +45,12 @@ impl Client {
         let info_hash_query: String = byte_serialize(self.torrent.info_hash.as_ref()).collect();
 
         let http_url = format!("{}?info_hash={}", scrape_url, info_hash_query);
-        if cfg!(debug) || cfg!(test) {
+        if cfg!(test) {
             println!("url: {}", http_url);
         }
         let ret = reqwest::get(http_url).await?;
         let bytes = ret.bytes().await?;
-        if cfg!(debug) || cfg!(test) {
+        if cfg!(test) {
             println!("response {:?}", bytes);
         }
         let mut response: ScrapeResponse = de::from_bytes(bytes.as_ref())?;

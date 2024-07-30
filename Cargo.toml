@@ -4,17 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0.203", features = ["derive"] }
-serde_with = { version = "3.8.1" }
-reqwest = { version = "0.12.4" }
-sha1_smol = { version = "1.0.0", features = ["std"] }
+serde = { version = "1.0.204", features = ["derive"] }
+serde_with = { version = "3.9.0" }
+reqwest = { version = "0.12.5" }
+sha1_smol = { version = "1.0.1", features = ["std"] }
 rand = "0.8.5"
-url = "2.5.0"
-log = "0.4.21"
+url = "2.5.2"
+log = "0.4.22"
 
 [dev-dependencies]
 serde_bencode = { version = "0.2.4" }
-tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.39.2", features = ["rt", "rt-multi-thread", "macros"] }
 
 [lib]
 crate-type = ["rlib"]
